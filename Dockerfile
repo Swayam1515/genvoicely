@@ -22,4 +22,4 @@ EXPOSE 7860
 
 # Run the application
 # NOTE: Ensure your main file is named 'app.py'. If it is 'main.py', change it below.
-CMD ["streamlit", "run", "streamlit_app.py", "--server.address", "0.0.0.0", "--server.port", "7860"]
+CMD ["streamlit", "run", "streamlit_app.py", "--server.address", "0.0.0.0", "--server.port", "7860", "--server.enableCORS", "false", "--server.enableXsrfProtection", "false"]
