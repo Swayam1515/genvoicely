@@ -2,6 +2,8 @@
 
 Upload any hotel/restaurant/shop bill photo → Get perfect GST-compliant invoice in seconds.
 
+Live Demo :- [https://huggingface.co/spaces/Swayam15/genvoicelly]
+
 ### Features
 - Automatic extraction of GSTIN, date, items, CGST & SGST
 - Generates professional PDF invoice
