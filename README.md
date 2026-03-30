@@ -21,4 +21,4 @@ Live Demo :- [https://huggingface.co/spaces/Swayam15/genvoicelly]
 git clone https://github.com/Swayam1515/genvoicely.git
 cd genvoicely
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run streamlit_app.py
