@@ -1,84 +1,113 @@
-# pdf_gen.py — FINAL VERSION (NO LOGO = NO CRASH, ₹ WORKS)
+# pdf_gen.py — ReportLab Compliant Vector PDF Generation
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from io import BytesIO
-import os
 
 def generate_pdf(data: dict, client_name: str, client_gstin: str, logo_path=None):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=1*cm)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        leftMargin=1.5*cm, 
+        rightMargin=1.5*cm, 
+        topMargin=1.5*cm, 
+        bottomMargin=1.5*cm
+    )
     styles = getSampleStyleSheet()
     story = []
 
-    # ONLY ADD LOGO IF IT'S A REAL VALID IMAGE
-    logo_added = False
-    if logo_path and os.path.exists(logo_path):
-        try:
-            from PIL import Image as PILImage
-            img = PILImage.open(logo_path)
-            img.verify()  # This catches corrupted files
-            from reportlab.platypus.flowables import Image as RLImage
-            logo = RLImage(logo_path, width=2*cm, height=2*cm)
-            logo.hAlign = 'LEFT'
-            story.append(logo)
-            story.append(Spacer(1, 0.3*cm))
-            logo_added = True
-        except:
-            pass  # Silently ignore broken/missing logo
+    title_style = ParagraphStyle(
+        'InvoiceTitle',
+        parent=styles['Title'],
+        fontSize=22,
+        textColor=colors.HexColor('#4F46E5'),
+        alignment=0
+    )
+    story.append(Paragraph("TAX INVOICE", title_style))
+    story.append(Spacer(1, 0.4*cm))
 
-    story.append(Paragraph("TAX INVOICE", styles['Title']))
-    story.append(Spacer(1, 0.5*cm))
+    supplier_name = data.get('supplier_name', 'Verified Merchant')
+    supplier_gstin = data.get('supplier_gstin', 'N/A')
+    invoice_date = data.get('date', 'N/A')
+    
+    meta_data = [
+        [
+            Paragraph(f"<b>Supplier / Merchant:</b> {supplier_name}<br/><b>GSTIN:</b> {supplier_gstin}", styles['Normal']),
+            Paragraph(f"<b>Bill To:</b> {client_name}<br/><b>GSTIN:</b> {client_gstin}<br/><b>Date:</b> {invoice_date}", styles['Normal'])
+        ]
+    ]
+    meta_table = Table(meta_data, colWidths=[9*cm, 9*cm])
+    meta_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 0.6*cm))
 
-    # Supplier info
-    story.append(Paragraph(f"<b>Supplier:</b> Genvoicely AI", styles['Normal']))
-    story.append(Paragraph(f"<b>GSTIN:</b> {data.get('supplier_gstin', '')}", styles['Normal']))
-    story.append(Paragraph(f"<b>Date:</b> {data.get('date', '')}", styles['Normal']))
-    story.append(Spacer(1, 0.5*cm))
-
-    # Client info
-    story.append(Paragraph(f"<b>Bill To:</b> {client_name}", styles['Normal']))
-    story.append(Paragraph(f"<b>GSTIN:</b> {client_gstin}", styles['Normal']))
-    story.append(Spacer(1, 0.5*cm))
-
-    # Items table
-    items_data = [["Description", "Qty", "Rate", "Amount"]]
+    items_data = [["Description", "Qty", "Rate (Rs.)", "Amount (Rs.)"]]
+    
     for item in data.get('items', []):
         items_data.append([
-            item.get('desc', 'Item'),
+            str(item.get('desc', 'Item')),
             str(item.get('qty', 1)),
-            f"₹ {item.get('rate', 0):,.2f}",
-            f"₹ {item.get('amt', 0):,.2f}"
+            f"Rs. {item.get('rate', 0):,.2f}",
+            f"Rs. {item.get('amt', 0):,.2f}"
         ])
 
-    subtotal = data.get('subtotal', 0)
-    cgst = data.get('cgst', 0)
-    sgst = data.get('sgst', 0)
-    total = data.get('grand_total', 0)
+    subtotal = sum(float(item.get('amt', 0)) for item in data.get('items', []))
+    if subtotal == 0:
+        subtotal = float(data.get('subtotal', 100.00))
+        
+    cgst = float(data.get('cgst', round(subtotal * 0.09, 2)))
+    sgst = float(data.get('sgst', cgst))
+    grand_total = float(data.get('grand_total', round(subtotal + cgst + sgst, 2)))
 
     items_data += [
-        ["", "Subtotal", "", f"₹ {subtotal:,.2f}"],
-        ["", "CGST", "", f"₹ {cgst:,.2f}"],
-        ["", "SGST", "", f"₹ {sgst:,.2f}"],
-        ["", "Total", "", f"₹ {total:,.2f}"]
+        ["", "", "Subtotal", f"Rs. {subtotal:,.2f}"],
+        ["", "", "CGST (9%)", f"Rs. {cgst:,.2f}"],
+        ["", "", "SGST (9%)", f"Rs. {sgst:,.2f}"],
+        ["", "", "Grand Total", f"Rs. {grand_total:,.2f}"]
     ]
 
-    table = Table(items_data, colWidths=[7*cm, 1.5*cm, 2*cm, 2.5*cm])
+    table = Table(items_data, colWidths=[9.5*cm, 1.5*cm, 3.5*cm, 3.5*cm])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1E3A8A")),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#4F46E5")),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('TOPPADDING', (0,0), (-1,0), 6),
         ('ALIGN', (1,1), (-1,-1), 'RIGHT'),
-        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('ALIGN', (0,1), (0,-1), 'LEFT'),
+        ('GRID', (0,0), (-1,-5), 0.5, colors.HexColor('#E2E8F0')),
+        ('SPAN', (0,-4), (1,-4)),
+        ('SPAN', (0,-3), (1,-3)),
+        ('SPAN', (0,-2), (1,-2)),
+        ('SPAN', (0,-1), (1,-1)),
+        ('FONTNAME', (2,-1), (-1,-1), 'Helvetica-Bold'),
+        ('BACKGROUND', (2,-1), (-1,-1), colors.HexColor('#F8FAFC')),
+        ('BOX', (0,-4), (-1,-1), 1, colors.HexColor('#4F46E5')),
+        ('FONTNAME', (0,1), (-1,-5), 'Helvetica'),
+        ('FONTSIZE', (0,1), (-1,-1), 9),
     ]))
     story.append(table)
 
     story.append(Spacer(1, 1*cm))
-    story.append(Paragraph("Thank you! Powered by <b>Genvoicely AI</b>", styles['Normal']))
+    
+    footer_style = ParagraphStyle(
+        'InvoiceFooter',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#64748B'),
+        alignment=1 
+    )
+    story.append(Paragraph("This is a computer-generated tax invoice processed and compiled via <b>GenVoicely AI</b>", footer_style))
 
     doc.build(story)
     buffer.seek(0)
-    return buffer
+    return buffer.read()
