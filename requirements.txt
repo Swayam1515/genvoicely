@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 altair==6.2.2
 annotated-doc==0.0.5
 anyio==4.15.1
@@ -67,3 +68,12 @@ urllib3==2.7.0
 uvicorn==0.52.4
 watchdog==6.0.0
 websockets==16.1.1
+=======
+streamlit==1.39.0
+opencv-python-headless==4.10.0.84
+pytesseract==0.3.10
+reportlab==4.2.2
+numpy==1.26.4
+pillow==10.4.0
+pandas==2.2.2
+>>>>>>> 46bbdcc9162bd66693bd506ccea4d4f9fffc630e
